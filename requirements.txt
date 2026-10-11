@@ -1,0 +1,48 @@
+# Core Utilities & Environment
+python-dotenv>=1.0.1
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+
+# Database & Storage
+psycopg2-binary>=2.9.9
+asyncpg>=0.29.0
+sqlalchemy>=2.0.30
+neo4j>=5.19.0
+
+# Data Science & Numerical Processing
+numpy>=1.26.4
+pandas>=2.2.2
+scipy>=1.13.0
+scikit-learn>=1.4.2
+statsmodels>=0.14.2
+
+# Deep Learning / PyTorch for LSTM Autoencoder
+torch>=2.2.0
+
+# Graph & Network Analysis & Feature Attribution
+networkx>=3.3
+shap>=0.45.0
+
+# Agent Framework & LLM Interface
+langchain>=0.1.20
+langchain-core>=0.1.52
+langchain-community>=0.0.38
+langchain-openai>=0.1.6
+langgraph>=0.0.53
+openai>=1.26.0
+
+# Web API Backend
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+httpx>=0.27.0
+websockets>=12.0
+
+# Testing & Quality Assurance
+pytest>=8.2.0
+pytest-asyncio>=0.23.6
+pytest-mock>=3.14.0
+
+# Documentation & Notebooks
+jupyter>=1.0.0
+matplotlib>=3.8.4
+seaborn>=0.13.2

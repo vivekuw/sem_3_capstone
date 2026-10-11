@@ -1,0 +1,6 @@
+Configuration,Short Name,Weight Temp,Weight KG,Weight Granger,Top-1 Accuracy,Top-3 Accuracy,MRR,Delta vs Full (Top-1),Description
+Full Tri-Modal (KG + Temp + Granger),Full Model,0.4,0.35,0.25,0.9167,1.0,0.9583,0.0,Full proposed architecture fusing physics graph & dynamics.
+Ablation: No Knowledge Graph (Temp + Granger Only),No KG (Ablation),0.6,0.0,0.4,0.4167,1.0,0.7083,-0.5,Purely statistical time-series reasoning without plant topology.
+Ablation: No Granger Causality (KG + Temp Only),No Granger,0.55,0.45,0.0,0.6667,1.0,0.8333,-0.25,Temporal precedence and graph proximity without vector autoregression.
+Ablation: Topology Only (Static Graph Proximity),Topology Only,0.0,1.0,0.0,0.9167,1.0,0.9583,0.0,Static Neo4j shortest path distance without dynamic sensor telemetry.
+Baseline: Temporal Precedence Only,Temporal Only,1.0,0.0,0.0,0.0833,1.0,0.4306,-0.8334,Naive chronological ranking based solely on first deviating sensor.

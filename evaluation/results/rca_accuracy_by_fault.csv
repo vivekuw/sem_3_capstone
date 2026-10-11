@@ -1,0 +1,13 @@
+Fault ID,Description,Ground Truth Unit,Predicted Rank 1,Confidence,True Cause Rank,Top-1 Correct,Top-3 Correct,Reciprocal Rank
+IDV(1),A/C Feed Ratio Step,UNIT_FEED,UNIT_FEED,0.8842,1,1,1,1.0
+IDV(2),B Composition Step,UNIT_FEED,UNIT_FEED,0.8843,1,1,1,1.0
+IDV(4),Reactor Cooling Water Step,UNIT_REACTOR,UNIT_REACTOR,0.8616,1,1,1,1.0
+IDV(5),Condenser Cooling Water Step,UNIT_CONDENSER,UNIT_SEPARATOR,0.8625,2,0,1,0.5
+IDV(6),A Feed Loss (Valve Shutoff),UNIT_FEED,UNIT_FEED,0.8839,1,1,1,1.0
+IDV(7),C Header Pressure Loss,UNIT_FEED,UNIT_FEED,0.8888,1,1,1,1.0
+IDV(8),"A, B, C Feed Composition Drift",UNIT_FEED,UNIT_FEED,0.8384,1,1,1,1.0
+IDV(11),Reactor Cooling Valve Sticking,UNIT_REACTOR,UNIT_REACTOR,0.7567,1,1,1,1.0
+IDV(12),Condenser Cooling Valve Sticking,UNIT_CONDENSER,UNIT_CONDENSER,0.8766,1,1,1,1.0
+IDV(13),Reaction Kinetics Slow Drift,UNIT_REACTOR,UNIT_REACTOR,0.8262,1,1,1,1.0
+IDV(14),Reactor Cooling Valve Sticking (Cyclic),UNIT_REACTOR,UNIT_REACTOR,0.825,1,1,1,1.0
+IDV(18),Stripper Steam Valve Sticking,UNIT_STRIPPER,UNIT_STRIPPER,0.9299,1,1,1,1.0

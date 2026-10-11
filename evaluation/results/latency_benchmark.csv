@@ -1,0 +1,6 @@
+Component,Mean Latency (ms),Median / p50 (ms),p95 Latency (ms),p99 Latency (ms),Min (ms),Max (ms),Std Dev (ms)
+Knowledge Graph Traversal (kg_tool),162.62,0.01,0.02,3089.67,0.01,4065.35,796.64
+Temporal Telemetry Query (temporal_tool),0.0,0.0,0.0,0.0,0.0,0.0,0.0
+Causal Multi-Modal Scoring (causal_tool),21.11,19.59,29.57,41.02,16.89,44.33,5.6
+Grounded Explanation Generation (explain_tool),0.13,0.11,0.16,0.28,0.1,0.32,0.04
+Total End-to-End Pipeline,183.86,19.74,29.7,3130.96,17.01,4110.0,801.43
