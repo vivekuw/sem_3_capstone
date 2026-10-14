@@ -58,6 +58,28 @@ SENSOR_UNITS: Dict[str, str] = {
     "XMEAS_17": "UNIT_STRIPPER",    # Stripper Underflow (m3/h)
     "XMEAS_18": "UNIT_STRIPPER",    # Stripper Temperature (°C)
     "XMEAS_19": "UNIT_STRIPPER",    # Stripper Steam Flow (kg/h)
+    # Stream 6: Reactor Feed Composition (mol%)
+    "XMEAS_23": "UNIT_REACTOR",     # Component A in Reactor Feed
+    "XMEAS_24": "UNIT_REACTOR",     # Component B in Reactor Feed
+    "XMEAS_25": "UNIT_REACTOR",     # Component C in Reactor Feed
+    "XMEAS_26": "UNIT_REACTOR",     # Component D in Reactor Feed
+    "XMEAS_27": "UNIT_REACTOR",     # Component E in Reactor Feed
+    "XMEAS_28": "UNIT_REACTOR",     # Component F in Reactor Feed
+    # Stream 9: Purge Gas Composition (mol%)
+    "XMEAS_29": "UNIT_SEPARATOR",   # Component A in Purge Gas
+    "XMEAS_30": "UNIT_SEPARATOR",   # Component B in Purge Gas
+    "XMEAS_31": "UNIT_SEPARATOR",   # Component C in Purge Gas
+    "XMEAS_32": "UNIT_SEPARATOR",   # Component D in Purge Gas
+    "XMEAS_33": "UNIT_SEPARATOR",   # Component E in Purge Gas
+    "XMEAS_34": "UNIT_SEPARATOR",   # Component F in Purge Gas
+    "XMEAS_35": "UNIT_SEPARATOR",   # Component G in Purge Gas
+    "XMEAS_36": "UNIT_SEPARATOR",   # Component H in Purge Gas
+    # Stream 11: Product Stream Composition (mol%)
+    "XMEAS_37": "UNIT_STRIPPER",    # Component D in Product
+    "XMEAS_38": "UNIT_STRIPPER",    # Component E in Product
+    "XMEAS_39": "UNIT_STRIPPER",    # Component F in Product
+    "XMEAS_40": "UNIT_STRIPPER",    # Component G in Product
+    "XMEAS_41": "UNIT_STRIPPER",    # Component H in Product
 }
 
 # Measurement Engineering Units
@@ -84,6 +106,7 @@ SENSOR_ENG_UNITS: Dict[str, str] = {
     "XMEAS_20": "kW",
     "XMEAS_21": "°C",
     "XMEAS_22": "°C",
+    **{f"XMEAS_{i}": "mol%" for i in range(23, 42)},
     "XMV_10": "%",
     "XMV_11": "%",
 }
@@ -120,6 +143,28 @@ class PlantSimulator:
             "XMEAS_20": 341.0,      # Compressor Work (kW)
             "XMEAS_21": 94.40,      # Reactor Cooling Water Outlet Temp (°C)
             "XMEAS_22": 77.20,      # Condenser Cooling Water Outlet Temp (°C)
+            # Stream 6 Compositions (mol%)
+            "XMEAS_23": 32.25,
+            "XMEAS_24": 8.95,
+            "XMEAS_25": 26.35,
+            "XMEAS_26": 6.85,
+            "XMEAS_27": 18.75,
+            "XMEAS_28": 1.65,
+            # Stream 9 Purge Compositions (mol%)
+            "XMEAS_29": 32.95,
+            "XMEAS_30": 13.80,
+            "XMEAS_31": 23.95,
+            "XMEAS_32": 1.25,
+            "XMEAS_33": 18.55,
+            "XMEAS_34": 2.25,
+            "XMEAS_35": 4.80,
+            "XMEAS_36": 2.45,
+            # Stream 11 Product Compositions (mol%)
+            "XMEAS_37": 0.15,
+            "XMEAS_38": 0.85,
+            "XMEAS_39": 0.05,
+            "XMEAS_40": 53.75,
+            "XMEAS_41": 43.85,
             "XMV_10": 41.10,        # Reactor Cooling Water Valve (%)
             "XMV_11": 18.10,        # Condenser Cooling Water Valve (%)
         }
@@ -148,6 +193,7 @@ class PlantSimulator:
             "XMEAS_20": 2.0,
             "XMEAS_21": 0.2,
             "XMEAS_22": 0.2,
+            **{f"XMEAS_{i}": 0.08 for i in range(23, 42)},
             "XMV_10": 0.2,
             "XMV_11": 0.2,
         }

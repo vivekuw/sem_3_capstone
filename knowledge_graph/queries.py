@@ -311,7 +311,7 @@ def get_full_subgraph(driver: Optional[Driver] = None) -> Dict[str, Any]:
     q_nodes = """
     MATCH (n)
     WHERE n:Unit OR n:Sensor OR n:FailureMode OR n:Equipment
-    RETURN n.id AS id,
+    RETURN coalesce(n.id, n.name) AS id,
            labels(n)[0] AS label,
            coalesce(n.name, n.id) AS name,
            n.description AS description,
@@ -324,8 +324,8 @@ def get_full_subgraph(driver: Optional[Driver] = None) -> Dict[str, Any]:
     MATCH (source)-[r]->(target)
     WHERE (source:Unit OR source:Sensor OR source:FailureMode OR source:Equipment)
       AND (target:Unit OR target:Sensor OR target:FailureMode OR target:Equipment)
-    RETURN source.id AS source,
-           target.id AS target,
+    RETURN coalesce(source.id, source.name) AS source,
+           coalesce(target.id, target.name) AS target,
            type(r) AS type,
            elementId(r) AS rel_id
     """
@@ -354,6 +354,8 @@ def get_full_subgraph(driver: Optional[Driver] = None) -> Dict[str, Any]:
             for record in session.run(q_rels):
                 src = record["source"]
                 tgt = record["target"]
+                if not src or not tgt or src not in nodes_map or tgt not in nodes_map:
+                    continue
                 rtype = record["type"]
                 eid = f"edge_{src}_{tgt}_{rtype}"
                 edge_data = {

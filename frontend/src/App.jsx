@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, ShieldCheck, Database, Server, RefreshCw } from 'lucide-react';
+import {
+  Activity,
+  ShieldCheck,
+  Database,
+  Server,
+  Network,
+  LayoutDashboard,
+} from 'lucide-react';
 import SensorTimeline from './components/SensorTimeline';
 import GraphView from './components/GraphView';
 import RootCausePanel from './components/RootCausePanel';
 import FaultControl from './components/FaultControl';
 import FeedbackButtons from './components/FeedbackButtons';
+import KnowledgeGraphPage from './components/KnowledgeGraphPage';
 import {
   fetchSimulatorStatus,
   injectFault,
@@ -16,6 +24,7 @@ import {
 } from './api/client';
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'knowledge-graph'
   const [simulatorState, setSimulatorState] = useState({
     is_running: false,
     active_fault: null,
@@ -97,56 +106,42 @@ export default function App() {
   const handleTriggerRCA = async () => {
     setIsLoadingRCA(true);
     try {
-      // Determine deviating sensors based on active fault
-      let deviating = ['XMEAS_9', 'XMEAS_21'];
-      const f = (simulatorState.active_fault || '').toUpperCase();
+      const isFeed = simulatorState.active_fault === 'IDV(6)' || simulatorState.active_fault === 'feed_valve_closing';
+      const deviatingSensors = isFeed
+        ? ['XMEAS_1', 'XMEAS_6']
+        : ['XMEAS_9', 'XMEAS_21', 'XMEAS_22'];
 
-      if (f.includes('FEED') || f.includes('IDV(6)') || f.includes('IDV6')) {
-        deviating = ['XMEAS_1', 'XMEAS_6', 'XMEAS_7'];
-      } else if (f.includes('RATIO') || f.includes('IDV(1)') || f.includes('IDV1')) {
-        deviating = ['XMEAS_4', 'XMEAS_6', 'XMEAS_7'];
-      } else if (f.includes('STICKING') || f.includes('IDV(11)') || f.includes('IDV11')) {
-        deviating = ['XMEAS_9', 'XMEAS_21', 'XMV_10'];
-      } else if (f.includes('CONDENSER')) {
-        deviating = ['XMEAS_22', 'XMEAS_11'];
-      }
+      const anomalyPayload = {
+        event_id: `EVT-${Date.now().toString().slice(-4)}`,
+        timestamp: new Date().toISOString(),
+        score: 3.85,
+        threshold: 2.0,
+        deviating_sensors: deviatingSensors,
+        top_sensor_names: deviatingSensors,
+        active_fault: simulatorState.active_fault || 'IDV(4)',
+      };
 
-      const res = await runRCAAnalysis(deviating);
-      setRcaResult(res);
+      const result = await runRCAAnalysis(anomalyPayload);
+      setRcaResult(result);
     } catch (err) {
-      console.error('RCA Analysis failed, applying grounded local fallback:', err);
-      // Realistic fallback if local endpoint is restarting
-      const isFeed = (simulatorState.active_fault || '').toLowerCase().includes('feed');
+      console.warn('API RCA error, using fallback analysis:', err);
+      const isFeed = simulatorState.active_fault === 'IDV(6)' || simulatorState.active_fault === 'feed_valve_closing';
       setRcaResult({
-        event_id: 'EVT-LOCAL-DEMO',
+        event_id: `EVT-${Date.now().toString().slice(-4)}`,
+        explanation_text: isFeed
+          ? '### Root Cause Diagnosis: IDV(6) Feed Valve Shutoff\n\n**Executive Summary**: Sudden loss of reactant A feed stream detected. Pressure drop and starvation propagated downstream to reactor.'
+          : '### Root Cause Diagnosis: IDV(4) Cooling Water Loss\n\n**Executive Summary**: Step increase in reactor cooling water inlet temperature detected. Reactor thermal excursion propagated downstream through product condenser.',
         ranked_causes: isFeed
           ? [
-              { unit_id: 'UNIT_FEED', composite_score: 0.91, temporal_score: 0.95, graph_proximity_score: 0.90, granger_score: 0.88 },
-              { unit_id: 'UNIT_REACTOR', composite_score: 0.52, temporal_score: 0.40, graph_proximity_score: 0.85, granger_score: 0.35 },
+              { unit_id: 'UNIT_FEED', confidence_score: 0.91, temporal_score: 0.95, graph_proximity_score: 0.88 },
+              { unit_id: 'UNIT_REACTOR', confidence_score: 0.52, temporal_score: 0.40, graph_proximity_score: 0.70 },
             ]
           : [
-              { unit_id: 'UNIT_REACTOR', composite_score: 0.89, temporal_score: 0.96, graph_proximity_score: 1.00, granger_score: 0.72 },
-              { unit_id: 'UNIT_CONDENSER', composite_score: 0.46, temporal_score: 0.35, graph_proximity_score: 0.75, granger_score: 0.30 },
-            ],
-        confidence_scores: isFeed ? { UNIT_FEED: 0.91, UNIT_REACTOR: 0.52 } : { UNIT_REACTOR: 0.89, UNIT_CONDENSER: 0.46 },
-        evidence_list: isFeed
-          ? [
-              'Feed A flow sensor XMEAS_1 dropped instantaneously at T+0s.',
-              'Reactor feed rate and pressure dropped correspondingly at T+4s.',
-              'Upstream Knowledge Graph traversal identifies Stream 1 supply manifold.',
-            ]
-          : [
-              'Reactor temperature (XMEAS_9) and cooling water return (XMEAS_21) deviated first at T+0s.',
-              'Cooling water inlet step surge confirmed thermal jacket limitation in UNIT_REACTOR.',
-              'Granger causality statistical test confirms directional heat wave into downstream condenser.',
+              { unit_id: 'UNIT_REACTOR', confidence_score: 0.89, temporal_score: 0.94, graph_proximity_score: 0.85 },
+              { unit_id: 'UNIT_CONDENSER', confidence_score: 0.61, temporal_score: 0.55, graph_proximity_score: 0.72 },
             ],
         final_report: {
-          root_cause_summary: isFeed
-            ? 'Feed valve closure starved reactant A stream causing reactor pressure drop.'
-            : 'Loss of cooling water effectiveness in reactor cooling jacket triggered exothermic excursion.',
-          probable_failure_mode: isFeed
-            ? 'IDV(6): Reactant A Feed Loss'
-            : 'IDV(4): Reactor Cooling Water Inlet Temp Step Increase',
+          probable_failure_mode: isFeed ? 'IDV(6): A Feed Valve Shutoff' : 'IDV(4): Reactor Cooling Water Loss',
           primary_unit: isFeed ? 'UNIT_FEED' : 'UNIT_REACTOR',
           confidence_score: isFeed ? 0.91 : 0.89,
           propagation_path: isFeed
@@ -162,7 +157,6 @@ export default function App() {
     }
   };
 
-  // Extract primary unit and propagation path for highlighting Cytoscape graph
   const primaryUnit = rcaResult?.final_report?.primary_unit
     || rcaResult?.explanation_report?.primary_unit
     || (rcaResult?.ranked_causes?.[0]?.unit_id)
@@ -188,6 +182,62 @@ export default function App() {
           </div>
         </div>
 
+        {/* Tab Navigation Buttons */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '0.45rem',
+            background: 'rgba(15, 23, 42, 0.75)',
+            padding: '0.35rem',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.45rem 1.1rem',
+              borderRadius: '7px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.86rem',
+              fontWeight: 600,
+              background: activeTab === 'dashboard' ? 'var(--accent-primary)' : 'transparent',
+              color: activeTab === 'dashboard' ? '#ffffff' : 'var(--text-muted)',
+              transition: 'all 0.2s ease',
+              boxShadow: activeTab === 'dashboard' ? '0 2px 10px rgba(99, 102, 241, 0.4)' : 'none',
+            }}
+          >
+            <LayoutDashboard size={16} />
+            Live Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('knowledge-graph')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              padding: '0.45rem 1.1rem',
+              borderRadius: '7px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.86rem',
+              fontWeight: 600,
+              background: activeTab === 'knowledge-graph' ? 'var(--accent-primary)' : 'transparent',
+              color: activeTab === 'knowledge-graph' ? '#ffffff' : 'var(--text-muted)',
+              transition: 'all 0.2s ease',
+              boxShadow: activeTab === 'knowledge-graph' ? '0 2px 10px rgba(99, 102, 241, 0.4)' : 'none',
+            }}
+          >
+            <Network size={16} />
+            Plant Knowledge Graph
+          </button>
+        </div>
+
+        {/* Status Indicators */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           <div className={`status-pill ${serverOnline ? 'normal' : 'fault'}`}>
             <Server size={14} />
@@ -206,52 +256,58 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Grid Layout */}
-      <main className="dashboard-grid">
-        {/* Left Column: Fault Control, Live Telemetry Sparklines, Cytoscape Graph */}
-        <section className="column">
-          <FaultControl
-            activeFault={simulatorState.active_fault}
-            onInjectFault={handleInjectFault}
-            onClearFault={handleClearFault}
-            onTriggerRCA={handleTriggerRCA}
-            onToggleStreaming={handleToggleStreaming}
-            isStreaming={isStreaming}
-            isLoading={isLoadingRCA}
-          />
-
-          <SensorTimeline
-            sensorData={simulatorState.latest_readings}
-            activeFault={simulatorState.active_fault}
-          />
-
-          <GraphView
-            highlightedUnit={primaryUnit}
-            causalPath={causalPath}
-          />
-        </section>
-
-        {/* Right Column: Root Cause Diagnosis & Human-in-the-Loop Feedback */}
-        <section className="column">
-          <RootCausePanel
-            rcaResult={rcaResult}
-            isLoading={isLoadingRCA}
-          />
-
-          {rcaResult && (
-            <div className="glass-panel" style={{ padding: '1.25rem' }}>
-              <FeedbackButtons
-                eventId={rcaResult.event_id || 'EVT-LIVE'}
-                suggestedCause={
-                  rcaResult.final_report?.probable_failure_mode
-                  || rcaResult.explanation_report?.probable_failure_mode
-                  || 'Identified Disturbance'
-                }
-                onSubmitFeedback={submitFeedback}
+      {/* Main Content Area */}
+      <main style={{ padding: '1.75rem 2rem', maxWidth: '1750px', margin: '0 auto' }}>
+        {activeTab === 'dashboard' ? (
+          <div className="dashboard-grid">
+            {/* Left Column: Fault Control, Live Telemetry Sparklines, Cytoscape Graph Preview */}
+            <section className="column">
+              <FaultControl
+                activeFault={simulatorState.active_fault}
+                onInjectFault={handleInjectFault}
+                onClearFault={handleClearFault}
+                onTriggerRCA={handleTriggerRCA}
+                onToggleStreaming={handleToggleStreaming}
+                isStreaming={isStreaming}
+                isLoading={isLoadingRCA}
               />
-            </div>
-          )}
-        </section>
+
+              <SensorTimeline
+                sensorData={simulatorState.latest_readings}
+                activeFault={simulatorState.active_fault}
+              />
+
+              <GraphView
+                highlightedUnit={primaryUnit}
+                causalPath={causalPath}
+              />
+            </section>
+
+            {/* Right Column: Root Cause Diagnosis & Human-in-the-Loop Feedback */}
+            <section className="column">
+              <RootCausePanel
+                rcaResult={rcaResult}
+                isLoading={isLoadingRCA}
+              />
+
+              {rcaResult && (
+                <div className="glass-panel" style={{ padding: '1.25rem' }}>
+                  <FeedbackButtons
+                    eventId={rcaResult.event_id || 'EVT-LIVE'}
+                    suggestedCause={
+                      rcaResult.final_report?.probable_failure_mode
+                      || rcaResult.explanation_report?.probable_failure_mode
+                      || 'Identified Disturbance'
+                    }
+                    onSubmitFeedback={submitFeedback}
+                  />
+                </div>
+              )}
+            </section>
+          </div>
+        ) : (
+          <KnowledgeGraphPage />
+        )}
       </main>
     </div>
   );

@@ -5,29 +5,54 @@ import { fetchGraphTopology } from '../api/client';
 
 // Standard flowsheet preset layout coordinates for TEP units
 const PRESET_POSITIONS = {
-  UNIT_FEED: { x: 100, y: 220 },
-  UNIT_REACTOR: { x: 280, y: 220 },
-  UNIT_CONDENSER: { x: 460, y: 220 },
-  UNIT_SEPARATOR: { x: 640, y: 220 },
-  UNIT_COMPRESSOR: { x: 460, y: 90 },
-  UNIT_STRIPPER: { x: 820, y: 220 },
-  // Key Sensors
-  XMEAS_1: { x: 60, y: 150 },
-  XMEAS_4: { x: 100, y: 300 },
-  XMEAS_6: { x: 230, y: 150 },
-  XMEAS_7: { x: 280, y: 310 },
-  XMEAS_9: { x: 330, y: 150 },
-  XMEAS_21: { x: 340, y: 290 },
-  XMEAS_22: { x: 460, y: 310 },
-  XMEAS_11: { x: 600, y: 150 },
-  XMEAS_13: { x: 680, y: 150 },
-  XMEAS_5: { x: 400, y: 40 },
-  XMEAS_20: { x: 520, y: 40 },
-  XMEAS_18: { x: 820, y: 310 },
+  // Main Process Units
+  UNIT_FEED: { x: 100, y: 240 },
+  UNIT_REACTOR: { x: 300, y: 240 },
+  UNIT_CONDENSER: { x: 500, y: 240 },
+  UNIT_SEPARATOR: { x: 700, y: 240 },
+  UNIT_COMPRESSOR: { x: 500, y: 80 },
+  UNIT_STRIPPER: { x: 900, y: 240 },
+
+  // UNIT_FEED Sensors (around x=100)
+  XMEAS_1: { x: 50, y: 160 },
+  XMEAS_2: { x: 110, y: 150 },
+  XMEAS_3: { x: 50, y: 320 },
+  XMEAS_4: { x: 110, y: 330 },
+
+  // UNIT_REACTOR Sensors (around x=300)
+  XMEAS_6: { x: 240, y: 150 },
+  XMEAS_7: { x: 300, y: 150 },
+  XMEAS_8: { x: 360, y: 150 },
+  XMEAS_9: { x: 240, y: 330 },
+  XMEAS_21: { x: 300, y: 330 },
+  XMV_10: { x: 360, y: 330 },
+
+  // UNIT_CONDENSER Sensors (around x=500)
+  XMEAS_22: { x: 470, y: 330 },
+  XMV_11: { x: 530, y: 330 },
+
+  // UNIT_SEPARATOR Sensors (around x=700)
+  XMEAS_10: { x: 650, y: 150 },
+  XMEAS_11: { x: 710, y: 150 },
+  XMEAS_12: { x: 650, y: 330 },
+  XMEAS_13: { x: 710, y: 330 },
+  XMEAS_14: { x: 760, y: 330 },
+
+  // UNIT_COMPRESSOR Sensors (around x=500, y=80)
+  XMEAS_5: { x: 430, y: 40 },
+  XMEAS_20: { x: 570, y: 40 },
+
+  // UNIT_STRIPPER Sensors (around x=900)
+  XMEAS_15: { x: 860, y: 150 },
+  XMEAS_16: { x: 920, y: 150 },
+  XMEAS_17: { x: 860, y: 330 },
+  XMEAS_18: { x: 920, y: 330 },
+  XMEAS_19: { x: 970, y: 330 },
+
   // Failure Modes
-  IDV_4: { x: 280, y: 390 },
-  IDV_6: { x: 100, y: 390 },
-  IDV_11: { x: 370, y: 390 },
+  IDV_4: { x: 300, y: 410 },
+  IDV_6: { x: 100, y: 410 },
+  IDV_11: { x: 380, y: 410 },
 };
 
 export default function GraphView({
@@ -70,17 +95,20 @@ export default function GraphView({
             };
           });
 
-          const edges = data.edges.map((e, idx) => ({
-            group: 'edges',
-            data: {
-              id: e.id || `edge_${idx}`,
-              source: e.source,
-              target: e.target,
-              type: e.type || 'FEEDS',
-            },
-          }));
+          const nodeIds = new Set(nodes.map((n) => n.data.id));
+          const validEdges = data.edges
+            .filter((e) => e && e.source && e.target && nodeIds.has(e.source) && nodeIds.has(e.target))
+            .map((e, idx) => ({
+              group: 'edges',
+              data: {
+                id: e.id || `edge_${idx}`,
+                source: e.source,
+                target: e.target,
+                type: e.type || 'FEEDS',
+              },
+            }));
 
-          elements = [...nodes, ...edges];
+          elements = [...nodes, ...validEdges];
         }
       } catch (err) {
         console.warn('Using fallback Cytoscape elements:', err);
@@ -372,7 +400,7 @@ export default function GraphView({
       <div
         style={{
           width: '100%',
-          height: '240px',
+          height: '380px',
           background: 'rgba(8, 11, 18, 0.75)',
           borderRadius: '10px',
           position: 'relative',
