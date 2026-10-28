@@ -176,8 +176,13 @@ class RCAGraphWorkflow:
         evt = state.get("anomaly_event", {})
         if evt:
             score = evt.get("score", evt.get("overall_score", 0.0))
+            sensors_summary = (
+                f"{', '.join(deviating[:8])} (...and {len(deviating) - 8} more sensors across all 6 units)"
+                if len(deviating) > 8
+                else ", ".join(deviating)
+            )
             evidence_list.append(
-                f"Anomaly alert triggered (score={score:.2f}, affected sensors: {', '.join(deviating)})."
+                f"Anomaly alert triggered (score={score:.2f}, affected sensors: {sensors_summary})."
             )
 
         if ranked_sensors:
@@ -209,6 +214,7 @@ class RCAGraphWorkflow:
 
         return {
             "ranked_causes": ranked_units,
+            "ranked_sensors": ranked_sensors,
             "confidence_scores": confidence_scores,
             "evidence_list": evidence_list,
         }
@@ -293,6 +299,7 @@ class RCAGraphWorkflow:
         # Return structured result
         return {
             "ranked_causes": final_state.get("ranked_causes", []),
+            "ranked_sensors": final_state.get("ranked_sensors", []),
             "confidence_scores": final_state.get("confidence_scores", {}),
             "evidence_list": final_state.get("evidence_list", []),
             "explanation_text": final_state.get("explanation_text", ""),

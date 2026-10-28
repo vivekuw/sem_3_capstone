@@ -36,6 +36,7 @@ class AnalysisRequest(BaseModel):
 class RCAResultSchema(BaseModel):
     event_id: str
     ranked_causes: List[Dict[str, Any]] = Field(default_factory=list)
+    ranked_sensors: List[Dict[str, Any]] = Field(default_factory=list)
     confidence_scores: Dict[str, float] = Field(default_factory=dict)
     evidence_list: List[str] = Field(default_factory=list)
     explanation_text: str = ""

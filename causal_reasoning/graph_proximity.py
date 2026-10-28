@@ -15,34 +15,64 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# Sensor to Unit ontological mapping
+# Sensor to Unit ontological mapping (All 41 Process Sensors + 2 Actuator Valves)
 SENSOR_TO_UNIT: Dict[str, str] = {
-    # TEP Benchmark variables
+    # UNIT_FEED (Reactant Header)
     "XMEAS_1": "UNIT_FEED",
     "XMEAS_2": "UNIT_FEED",
     "XMEAS_3": "UNIT_FEED",
     "XMEAS_4": "UNIT_FEED",
+
+    # UNIT_REACTOR (CSTR & Stream 6 Compositions)
     "XMEAS_6": "UNIT_REACTOR",
     "XMEAS_7": "UNIT_REACTOR",
     "XMEAS_8": "UNIT_REACTOR",
     "XMEAS_9": "UNIT_REACTOR",
     "XMEAS_21": "UNIT_REACTOR",
+    "XMEAS_23": "UNIT_REACTOR",
+    "XMEAS_24": "UNIT_REACTOR",
+    "XMEAS_25": "UNIT_REACTOR",
+    "XMEAS_26": "UNIT_REACTOR",
+    "XMEAS_27": "UNIT_REACTOR",
+    "XMEAS_28": "UNIT_REACTOR",
+    "XMV_10": "UNIT_REACTOR",
+
+    # UNIT_CONDENSER (Product Condenser Heat Exchanger)
     "XMEAS_22": "UNIT_CONDENSER",
+    "XMV_11": "UNIT_CONDENSER",
+
+    # UNIT_SEPARATOR (High-Pressure Flash Drum & Stream 9 Purge Compositions)
     "XMEAS_10": "UNIT_SEPARATOR",
     "XMEAS_11": "UNIT_SEPARATOR",
     "XMEAS_12": "UNIT_SEPARATOR",
     "XMEAS_13": "UNIT_SEPARATOR",
     "XMEAS_14": "UNIT_SEPARATOR",
+    "XMEAS_29": "UNIT_SEPARATOR",
+    "XMEAS_30": "UNIT_SEPARATOR",
+    "XMEAS_31": "UNIT_SEPARATOR",
+    "XMEAS_32": "UNIT_SEPARATOR",
+    "XMEAS_33": "UNIT_SEPARATOR",
+    "XMEAS_34": "UNIT_SEPARATOR",
+    "XMEAS_35": "UNIT_SEPARATOR",
+    "XMEAS_36": "UNIT_SEPARATOR",
+
+    # UNIT_COMPRESSOR (Recycle Gas Centrifugal Compressor)
     "XMEAS_5": "UNIT_COMPRESSOR",
     "XMEAS_20": "UNIT_COMPRESSOR",
+
+    # UNIT_STRIPPER (Distillation Stripper & Stream 11 Product Compositions)
     "XMEAS_15": "UNIT_STRIPPER",
     "XMEAS_16": "UNIT_STRIPPER",
     "XMEAS_17": "UNIT_STRIPPER",
     "XMEAS_18": "UNIT_STRIPPER",
     "XMEAS_19": "UNIT_STRIPPER",
-    "XMEAS_23": "UNIT_PRODUCT",
-    "XMEAS_24": "UNIT_PRODUCT",
-    # Flow segment variables
+    "XMEAS_37": "UNIT_STRIPPER",
+    "XMEAS_38": "UNIT_STRIPPER",
+    "XMEAS_39": "UNIT_STRIPPER",
+    "XMEAS_40": "UNIT_STRIPPER",
+    "XMEAS_41": "UNIT_STRIPPER",
+
+    # Flow segment equipment
     "P100_flow": "P-100",
     "P100_pressure": "P-100",
     "P100_power": "P-100",
@@ -154,13 +184,16 @@ class PlantGraphTopology:
         manifesting_sensors: List[str]
     ) -> Dict[str, float]:
         """Compute proximity scores per candidate sensor based on their units."""
-        affected_units = [SENSOR_TO_UNIT[s] for s in manifesting_sensors if s in SENSOR_TO_UNIT]
+        affected_units = list(dict.fromkeys([SENSOR_TO_UNIT[s] for s in manifesting_sensors if s in SENSOR_TO_UNIT]))
         scores: Dict[str, float] = {}
+        unit_cache: Dict[str, float] = {}
 
         for sensor in candidate_sensors:
             unit = SENSOR_TO_UNIT.get(sensor)
             if unit:
-                scores[sensor] = self.compute_unit_proximity(unit, affected_units)
+                if unit not in unit_cache:
+                    unit_cache[unit] = self.compute_unit_proximity(unit, affected_units)
+                scores[sensor] = unit_cache[unit]
             else:
                 scores[sensor] = 0.2
 

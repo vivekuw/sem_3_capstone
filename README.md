@@ -247,11 +247,11 @@ Expected output:
 
 ### 4. Running Backend API & Frontend Dashboard
 
-#### A. Start the Backend API (Port 8009)
+#### A. Start the Backend API (Port 8005)
 ```bash
 python api/main.py
 # Or:
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8009 --reload
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8005 --reload
 ```
 
 #### B. Start the React Frontend Dashboard (Port 3000 / 5173)

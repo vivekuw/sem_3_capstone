@@ -15,6 +15,7 @@ class AgentState(TypedDict, total=False):
     telemetry_summary: Dict[str, Any]
     telemetry_data: Optional[Any]
     ranked_causes: List[Dict[str, Any]]
+    ranked_sensors: List[Dict[str, Any]]
     confidence_scores: Dict[str, float]
     evidence_list: List[str]
     explanation_text: str

@@ -326,6 +326,80 @@ class PlantSimulator:
                     self.current_state["XMEAS_11"] = self.nominal_state["XMEAS_11"] + min(8.0, 0.22 * t_eff)
                     self.current_state["XMEAS_13"] = self.nominal_state["XMEAS_13"] + min(60.0, 1.4 * t_eff)
 
+            # -----------------------------------------------------------------
+            # Fault: Plant-Wide Multi-Unit Cascade (All 43 Sensors Across 6 Units)
+            # Physical propagation path:
+            # FEED (t=0) -> REACTOR (t>=4) -> CONDENSER (t>=8) -> SEPARATOR (t>=12) -> COMPRESSOR (t>=18) -> STRIPPER (t>=24)
+            # -----------------------------------------------------------------
+            elif "PLANT_WIDE_CASCADE" in f or "ALL(43)" in f or "ALL_43" in f or "CASCADE" in f:
+                # 1. UNIT_FEED (Immediate at t=0, sensors XMEAS_1 .. XMEAS_4)
+                self.current_state["XMEAS_1"] = max(0.01, self.nominal_state["XMEAS_1"] - 0.015 * t)
+                self.current_state["XMEAS_2"] = self.nominal_state["XMEAS_2"] + min(420.0, 14.0 * t)
+                self.current_state["XMEAS_3"] = max(2800.0, self.nominal_state["XMEAS_3"] - 18.0 * t)
+                self.current_state["XMEAS_4"] = self.nominal_state["XMEAS_4"] + min(2.2, 0.09 * t)
+
+                # 2. UNIT_REACTOR (t >= 4, delay = 4s; sensors 6, 7, 8, 9, 21, 23-28, XMV_10)
+                if t >= 4:
+                    tr = t - 4
+                    self.current_state["XMEAS_6"] = max(26.0, self.nominal_state["XMEAS_6"] - 0.45 * tr)
+                    self.current_state["XMEAS_7"] = self.nominal_state["XMEAS_7"] + min(175.0, 4.2 * tr)
+                    self.current_state["XMEAS_8"] = max(45.0, self.nominal_state["XMEAS_8"] - 0.35 * tr)
+                    self.current_state["XMEAS_9"] = self.nominal_state["XMEAS_9"] + min(18.0, 0.52 * tr)
+                    self.current_state["XMEAS_21"] = self.nominal_state["XMEAS_21"] + min(19.5, 0.58 * tr)
+                    self.current_state["XMV_10"] = min(100.0, self.nominal_state["XMV_10"] + 1.8 * tr)
+                    # Stream 6 reactor compositions (XMEAS_23 to 28)
+                    self.current_state["XMEAS_23"] = max(18.0, self.nominal_state["XMEAS_23"] - 0.35 * tr)
+                    self.current_state["XMEAS_24"] = self.nominal_state["XMEAS_24"] + min(5.5, 0.15 * tr)
+                    self.current_state["XMEAS_25"] = self.nominal_state["XMEAS_25"] + min(8.0, 0.22 * tr)
+                    self.current_state["XMEAS_26"] = max(2.5, self.nominal_state["XMEAS_26"] - 0.12 * tr)
+                    self.current_state["XMEAS_27"] = self.nominal_state["XMEAS_27"] + min(6.5, 0.18 * tr)
+                    self.current_state["XMEAS_28"] = self.nominal_state["XMEAS_28"] + min(2.0, 0.06 * tr)
+
+                # 3. UNIT_CONDENSER (t >= 8, delay = 8s; sensors XMEAS_22, XMV_11)
+                if t >= 8:
+                    tc = t - 8
+                    self.current_state["XMEAS_22"] = self.nominal_state["XMEAS_22"] + min(16.5, 0.48 * tc)
+                    self.current_state["XMV_11"] = min(95.0, self.nominal_state["XMV_11"] + 1.6 * tc)
+
+                # 4. UNIT_SEPARATOR (t >= 12, delay = 12s; sensors 10, 11, 12, 13, 14, 29-36)
+                if t >= 12:
+                    ts = t - 12
+                    self.current_state["XMEAS_10"] = self.nominal_state["XMEAS_10"] + min(0.32, 0.012 * ts)
+                    self.current_state["XMEAS_11"] = self.nominal_state["XMEAS_11"] + min(11.5, 0.32 * ts)
+                    self.current_state["XMEAS_12"] = max(30.0, self.nominal_state["XMEAS_12"] - 0.45 * ts)
+                    self.current_state["XMEAS_13"] = self.nominal_state["XMEAS_13"] + min(98.0, 2.4 * ts)
+                    self.current_state["XMEAS_14"] = max(14.0, self.nominal_state["XMEAS_14"] - 0.28 * ts)
+                    # Stream 9 separator purge compositions (XMEAS_29 to 36)
+                    self.current_state["XMEAS_29"] = max(20.0, self.nominal_state["XMEAS_29"] - 0.3 * ts)
+                    self.current_state["XMEAS_30"] = self.nominal_state["XMEAS_30"] + min(6.0, 0.16 * ts)
+                    self.current_state["XMEAS_31"] = self.nominal_state["XMEAS_31"] + min(7.2, 0.2 * ts)
+                    self.current_state["XMEAS_32"] = max(0.4, self.nominal_state["XMEAS_32"] - 0.03 * ts)
+                    self.current_state["XMEAS_33"] = self.nominal_state["XMEAS_33"] + min(5.5, 0.15 * ts)
+                    self.current_state["XMEAS_34"] = self.nominal_state["XMEAS_34"] + min(1.8, 0.05 * ts)
+                    self.current_state["XMEAS_35"] = self.nominal_state["XMEAS_35"] + min(3.2, 0.08 * ts)
+                    self.current_state["XMEAS_36"] = self.nominal_state["XMEAS_36"] + min(1.9, 0.05 * ts)
+
+                # 5. UNIT_COMPRESSOR (t >= 18, delay = 18s; sensors XMEAS_5, XMEAS_20)
+                if t >= 18:
+                    tk = t - 18
+                    self.current_state["XMEAS_5"] = self.nominal_state["XMEAS_5"] + min(6.2, 0.18 * tk)
+                    self.current_state["XMEAS_20"] = self.nominal_state["XMEAS_20"] + min(58.0, 1.5 * tk)
+
+                # 6. UNIT_STRIPPER (t >= 24, delay = 24s; sensors 15, 16, 17, 18, 19, 37-41)
+                if t >= 24:
+                    tst = t - 24
+                    self.current_state["XMEAS_15"] = max(32.0, self.nominal_state["XMEAS_15"] - 0.38 * tst)
+                    self.current_state["XMEAS_16"] = self.nominal_state["XMEAS_16"] + min(70.0, 1.6 * tst)
+                    self.current_state["XMEAS_17"] = max(14.0, self.nominal_state["XMEAS_17"] - 0.22 * tst)
+                    self.current_state["XMEAS_18"] = self.nominal_state["XMEAS_18"] + min(12.5, 0.32 * tst)
+                    self.current_state["XMEAS_19"] = self.nominal_state["XMEAS_19"] + min(190.0, 4.8 * tst)
+                    # Stream 11 product compositions (XMEAS_37 to 41)
+                    self.current_state["XMEAS_37"] = self.nominal_state["XMEAS_37"] + min(0.35, 0.01 * tst)
+                    self.current_state["XMEAS_38"] = self.nominal_state["XMEAS_38"] + min(1.2, 0.03 * tst)
+                    self.current_state["XMEAS_39"] = self.nominal_state["XMEAS_39"] + min(0.25, 0.008 * tst)
+                    self.current_state["XMEAS_40"] = max(38.0, self.nominal_state["XMEAS_40"] - 0.42 * tst)
+                    self.current_state["XMEAS_41"] = max(29.0, self.nominal_state["XMEAS_41"] - 0.38 * tst)
+
         # Apply measurement noise and format return telemetry
         timestamp = datetime.now(timezone.utc)
         measurements: Dict[str, float] = {}

@@ -54,6 +54,19 @@ async def clear_fault():
     return GLOBAL_INJECTOR.clear_fault()
 
 
+@router.post("/mitigate")
+async def apply_mitigation():
+    """Apply operator mitigation to resolve the active plant disturbance and restore steady-state."""
+    active = GLOBAL_SIMULATOR.active_fault or "UNKNOWN_FAULT"
+    res = GLOBAL_INJECTOR.clear_fault()
+    return {
+        "status": "mitigated",
+        "resolved_fault": active,
+        "message": f"Operator mitigation executed for {active}. All controller loops and valves restored to safe baseline.",
+        "sim_state": res,
+    }
+
+
 @router.post("/step")
 async def step_simulation():
     """Advance simulation by one timestep and return latest sensor measurements."""

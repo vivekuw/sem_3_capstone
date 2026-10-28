@@ -117,10 +117,12 @@ class CausalScorer:
 
             # Unit Granger Score: statistical influence of unit sensors on other manifesting sensors
             other_manifesting = [s for s in manifesting_sensors if SENSOR_TO_UNIT.get(s) != unit]
+            target_subset = other_manifesting[:5] if len(other_manifesting) > 5 else other_manifesting
+            eval_unit_sensors = sensors_for_unit[:3] if len(sensors_for_unit) > 3 else sensors_for_unit
             granger_sub_scores = []
-            for s in sensors_for_unit:
-                if other_manifesting:
-                    granger_sub_scores.append(compute_granger_outbound_score(df_window, s, other_manifesting))
+            for s in eval_unit_sensors:
+                if target_subset:
+                    granger_sub_scores.append(compute_granger_outbound_score(df_window, s, target_subset))
             s_granger = max(granger_sub_scores) if granger_sub_scores else 0.3
 
             # Composite confidence score
@@ -173,12 +175,22 @@ class CausalScorer:
         temp_scores = calculate_temporal_precedence_scores(df_window, candidate_sensors)
         graph_scores = self.topology.score_sensors_against_manifestations(candidate_sensors, manifesting_sensors)
 
+        # Prioritize top 8 temporal candidate sensors for Granger testing if candidate list is large
+        if len(candidate_sensors) > 8:
+            top_granger_candidates = set(sorted(candidate_sensors, key=lambda s: temp_scores.get(s, 0.0), reverse=True)[:8])
+        else:
+            top_granger_candidates = set(candidate_sensors)
+
         ranked_sensors: List[CandidateRootCause] = []
         for sensor in candidate_sensors:
             s_temp = temp_scores.get(sensor, 0.0)
             s_graph = graph_scores.get(sensor, 0.0)
-            other_sensors = [m for m in manifesting_sensors if m != sensor]
-            s_granger = compute_granger_outbound_score(df_window, sensor, other_sensors) if other_sensors else 0.5
+            if sensor in top_granger_candidates:
+                other_sensors = [m for m in manifesting_sensors if m != sensor]
+                target_sub = other_sensors[:3] if len(other_sensors) > 3 else other_sensors
+                s_granger = compute_granger_outbound_score(df_window, sensor, target_sub) if target_sub else 0.5
+            else:
+                s_granger = 0.25
 
             composite = (
                 self.w_temp * s_temp +

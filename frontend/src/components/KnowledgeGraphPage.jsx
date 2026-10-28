@@ -257,12 +257,42 @@ const DEFAULT_BACKUP_EDGES = [
   { id: 'e_f11', source: 'UNIT_REACTOR', target: 'IDV_11', type: 'SUSCEPTIBLE_TO' },
 ];
 
+// Machine selection options for per-unit subgraph filtering
+export const MACHINE_OPTIONS = [
+  { id: 'ALL', name: 'All Machines (Plant-Wide Flowsheet)', icon: '🌐', count: 6 },
+  { id: 'UNIT_FEED', name: 'Reactant Feed System (UNIT_FEED)', icon: '⚙️', count: 4 },
+  { id: 'UNIT_REACTOR', name: 'Chemical Reactor CSTR (UNIT_REACTOR)', icon: '🔥', count: 6 },
+  { id: 'UNIT_CONDENSER', name: 'Product Condenser (UNIT_CONDENSER)', icon: '❄️', count: 2 },
+  { id: 'UNIT_SEPARATOR', name: 'Vapor-Liquid Separator (UNIT_SEPARATOR)', icon: '🌪️', count: 5 },
+  { id: 'UNIT_COMPRESSOR', name: 'Recycle Compressor (UNIT_COMPRESSOR)', icon: '🔄', count: 2 },
+  { id: 'UNIT_STRIPPER', name: 'Product Stripper Column (UNIT_STRIPPER)', icon: '🧪', count: 5 },
+];
+
+export const UNIT_ASSOCIATED_MAP = {
+  UNIT_FEED: ['XMEAS_1', 'XMEAS_2', 'XMEAS_3', 'XMEAS_4', 'IDV_6', 'P-100', 'V-101', 'HX-102', 'P100_flow', 'P100_pressure', 'V101_pos', 'V101_flow', 'HX102_temp_in', 'HX102_temp_out'],
+  UNIT_REACTOR: ['XMEAS_6', 'XMEAS_7', 'XMEAS_8', 'XMEAS_9', 'XMEAS_21', 'XMV_10', 'IDV_4', 'IDV_11', 'R-103'],
+  UNIT_CONDENSER: ['XMEAS_22', 'XMV_11', 'IDV_5'],
+  UNIT_SEPARATOR: ['XMEAS_10', 'XMEAS_11', 'XMEAS_12', 'XMEAS_13', 'XMEAS_14'],
+  UNIT_COMPRESSOR: ['XMEAS_5', 'XMEAS_20'],
+  UNIT_STRIPPER: ['XMEAS_15', 'XMEAS_16', 'XMEAS_17', 'XMEAS_18', 'XMEAS_19', 'IDV_18'],
+};
+
+export const MACHINE_NEIGHBORS = {
+  UNIT_FEED: ['UNIT_REACTOR'],
+  UNIT_REACTOR: ['UNIT_FEED', 'UNIT_COMPRESSOR', 'UNIT_CONDENSER'],
+  UNIT_CONDENSER: ['UNIT_REACTOR', 'UNIT_SEPARATOR'],
+  UNIT_SEPARATOR: ['UNIT_CONDENSER', 'UNIT_COMPRESSOR', 'UNIT_STRIPPER'],
+  UNIT_COMPRESSOR: ['UNIT_SEPARATOR', 'UNIT_REACTOR'],
+  UNIT_STRIPPER: ['UNIT_SEPARATOR', 'UNIT_CONDENSER'],
+};
+
 export default function KnowledgeGraphPage() {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all', 'units', 'sensors', 'failures'
+  const [selectedMachine, setSelectedMachine] = useState('ALL');
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -415,6 +445,32 @@ export default function KnowledgeGraphPage() {
               'shadow-opacity': 0.9,
             },
           },
+          // Focused Machine in Per-Unit Subgraph View
+          {
+            selector: 'node.focused-machine',
+            style: {
+              'border-color': '#f43f5e',
+              'border-width': 4,
+              'width': '130px',
+              'height': '54px',
+              'font-size': '13px',
+              'font-weight': 800,
+              'shadow-blur': 30,
+              'shadow-color': '#f43f5e',
+              'shadow-opacity': 0.85,
+            },
+          },
+          // Boundary Neighbor Units in Subgraph View
+          {
+            selector: 'node.boundary-neighbor',
+            style: {
+              'opacity': 0.68,
+              'border-style': 'dashed',
+              'border-color': '#94a3b8',
+              'border-width': 1.5,
+              'font-size': '10px',
+            },
+          },
           // Base Edge Style
           {
             selector: 'edge',
@@ -508,27 +564,94 @@ export default function KnowledgeGraphPage() {
     };
   }, []);
 
+  // Apply combined Machine Subgraph and Entity Type filters
+  const applyGraphFilters = (machine, type) => {
+    const cy = cyRef.current;
+    if (!cy || cy.destroyed()) return;
+
+    // Reset visibility and custom classes
+    cy.elements().style('display', 'element');
+    cy.nodes().removeClass('focused-machine');
+    cy.nodes().removeClass('boundary-neighbor');
+
+    // 1. Filter by Selected Machine if not 'ALL'
+    if (machine !== 'ALL') {
+      const associated = UNIT_ASSOCIATED_MAP[machine] || [];
+      const neighbors = MACHINE_NEIGHBORS[machine] || [];
+      const allowedIds = new Set([machine, ...associated, ...neighbors]);
+
+      cy.nodes().forEach((n) => {
+        const id = n.data('id');
+        if (!allowedIds.has(id)) {
+          n.style('display', 'none');
+        } else if (neighbors.includes(id)) {
+          n.addClass('boundary-neighbor');
+        }
+      });
+
+      // Highlight the focused machine node
+      const focused = cy.$(`node#${machine}`);
+      if (focused.length > 0) {
+        focused.addClass('focused-machine');
+      }
+    }
+
+    // 2. Filter by Entity Type (all, units, sensors, failures)
+    if (type === 'units') {
+      cy.$('node[type != "Unit"]').style('display', 'none');
+    } else if (type === 'sensors') {
+      cy.$('node[type = "FailureMode"]').style('display', 'none');
+    } else if (type === 'failures') {
+      cy.$('node[type = "Sensor"]').style('display', 'none');
+    }
+
+    // 3. Filter Edges (hide edge if source or target is hidden)
+    cy.edges().forEach((edge) => {
+      const src = edge.source();
+      const tgt = edge.target();
+      if (src.style('display') === 'none' || tgt.style('display') === 'none') {
+        edge.style('display', 'none');
+      } else {
+        if (type === 'units' && edge.data('type') !== 'FEEDS') {
+          edge.style('display', 'none');
+        }
+      }
+    });
+
+    // 4. Smoothly fit visible elements onto canvas
+    setTimeout(() => {
+      if (!cy || cy.destroyed()) return;
+      const visible = cy.elements().filter((ele) => ele.style('display') !== 'none');
+      if (visible.length > 0) {
+        cy.animate({
+          fit: {
+            eles: visible,
+            padding: machine === 'ALL' ? 40 : 75,
+          },
+          duration: 450,
+        });
+      }
+    }, 50);
+
+    // 5. Open machine details in inspector panel when focusing a machine
+    if (machine !== 'ALL') {
+      const unitNode = cy.$(`node#${machine}`);
+      if (unitNode.length > 0) {
+        setSelectedNode(unitNode.data());
+      }
+    }
+  };
+
   // Filter Nodes by Type
   const handleFilterChange = (type) => {
     setFilterType(type);
-    const cy = cyRef.current;
-    if (!cy) return;
+    applyGraphFilters(selectedMachine, type);
+  };
 
-    cy.nodes().style('display', 'element');
-    cy.edges().style('display', 'element');
-
-    if (type === 'units') {
-      cy.$('node[type != "Unit"]').style('display', 'none');
-      cy.$('edge[type != "FEEDS"]').style('display', 'none');
-    } else if (type === 'sensors') {
-      cy.$('node[type = "FailureMode"]').style('display', 'none');
-      cy.$('edge[type = "SUSCEPTIBLE_TO"]').style('display', 'none');
-    } else if (type === 'failures') {
-      cy.$('node[type = "Sensor"]').style('display', 'none');
-      cy.$('edge[type = "MEASURES"]').style('display', 'none');
-    }
-
-    cy.fit(undefined, 35);
+  // Switch Machine Subgraph
+  const handleMachineChange = (machineId) => {
+    setSelectedMachine(machineId);
+    applyGraphFilters(machineId, filterType);
   };
 
   // Search Node and Zoom
@@ -558,14 +681,16 @@ export default function KnowledgeGraphPage() {
   };
 
   const handleResetView = () => {
+    setSelectedMachine('ALL');
+    setFilterType('all');
+    setSelectedNode(null);
+    setSearchQuery('');
     const cy = cyRef.current;
-    if (cy) {
+    if (cy && !cy.destroyed()) {
       cy.nodes().unselect();
-      setSelectedNode(null);
-      setSearchQuery('');
-      setFilterType('all');
-      cy.nodes().style('display', 'element');
-      cy.edges().style('display', 'element');
+      cy.elements().style('display', 'element');
+      cy.nodes().removeClass('focused-machine');
+      cy.nodes().removeClass('boundary-neighbor');
       cy.fit(undefined, 35);
     }
   };
@@ -668,151 +793,250 @@ export default function KnowledgeGraphPage() {
           </div>
         </div>
 
-        {/* Toolbar: Filters, Spacing Controls, Search Bar, Zoom */}
+        {/* Toolbar: Machine Subgraph Dropdown, Filters, Spacing, and Zoom */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            flexDirection: 'column',
+            gap: '0.85rem',
             marginTop: '1.25rem',
             paddingTop: '1rem',
             borderTop: '1px solid var(--border-subtle)',
-            flexWrap: 'wrap',
-            gap: '0.85rem',
           }}
         >
-          {/* Filters */}
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <Filter size={13} /> View:
-            </span>
-            <button
-              className={filterType === 'all' ? 'btn-primary' : 'btn-outline'}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-              onClick={() => handleFilterChange('all')}
-            >
-              All Entities
-            </button>
-            <button
-              className={filterType === 'units' ? 'btn-primary' : 'btn-outline'}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-              onClick={() => handleFilterChange('units')}
-            >
-              Machines Only
-            </button>
-            <button
-              className={filterType === 'sensors' ? 'btn-primary' : 'btn-outline'}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-              onClick={() => handleFilterChange('sensors')}
-            >
-              Sensors + Units
-            </button>
-            <button
-              className={filterType === 'failures' ? 'btn-primary' : 'btn-outline'}
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-              onClick={() => handleFilterChange('failures')}
-            >
-              Failure Modes
-            </button>
-          </div>
+          {/* Row 1: Dedicated Machine Scope Dropdown & Quick Unit Switcher */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <Cpu size={16} color="var(--accent-primary)" />
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#f8fafc' }}>
+                  Machine Subgraph:
+                </span>
+                <select
+                  value={selectedMachine}
+                  onChange={(e) => handleMachineChange(e.target.value)}
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.95)',
+                    border: '1.5px solid rgba(99, 102, 241, 0.6)',
+                    borderRadius: '7px',
+                    padding: '0.4rem 0.9rem',
+                    color: '#ffffff',
+                    fontSize: '0.84rem',
+                    fontWeight: 700,
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 16px rgba(99, 102, 241, 0.25)',
+                  }}
+                  title="Filter knowledge graph to view a single machine or the entire plant"
+                >
+                  {MACHINE_OPTIONS.map((m) => (
+                    <option key={m.id} value={m.id} style={{ background: '#0f172a', color: '#ffffff' }}>
+                      {m.icon} {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Node Spacing & Layout Buttons */}
-          <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <Layers size={13} /> Spacing:
-            </span>
-            <button
-              className="btn-outline"
-              style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
-              onClick={() => handleScaleSpacing(1.25)}
-              title="Increase space between all machines and entities"
-            >
-              + Spread Out
-            </button>
-            <button
-              className="btn-outline"
-              style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
-              onClick={() => handleScaleSpacing(0.8)}
-              title="Decrease space between all entities"
-            >
-              - Compact
-            </button>
-            <button
-              className="btn-outline"
-              style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem', color: 'var(--accent-cyan)' }}
-              onClick={handleRunCoSE}
-              title="Organic physics layout separating all entities"
-            >
-              Auto Physics
-            </button>
-            <button
-              className="btn-outline"
-              style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
-              onClick={handleResetFlowsheet}
-              title="Reset to wide-spaced chemical flowsheet layout"
-            >
-              Wide Flowsheet
-            </button>
-          </div>
+              {/* Quick-switch Machine Chips */}
+              <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {MACHINE_OPTIONS.map((m) => {
+                  const isSelected = selectedMachine === m.id;
+                  const shortName = m.id === 'ALL' ? 'All Machines' : m.id.replace('UNIT_', '');
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => handleMachineChange(m.id)}
+                      style={{
+                        background: isSelected ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(168, 85, 247, 0.3))' : 'rgba(255, 255, 255, 0.04)',
+                        border: `1px solid ${isSelected ? 'rgba(99, 102, 241, 0.75)' : 'rgba(255, 255, 255, 0.08)'}`,
+                        color: isSelected ? '#ffffff' : '#94a3b8',
+                        padding: '0.28rem 0.65rem',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        fontWeight: isSelected ? 700 : 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isSelected ? '0 0 12px rgba(99, 102, 241, 0.3)' : 'none',
+                      }}
+                      title={`Focus view on ${m.name}`}
+                    >
+                      {m.icon} {shortName}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-          {/* Search Box & Controls */}
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-              <input
-                type="text"
-                placeholder="Search sensor (e.g. XMEAS_9)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+            {/* Active Subgraph Status Pill */}
+            {selectedMachine !== 'ALL' && (
+              <div
                 style={{
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '6px',
-                  padding: '0.35rem 2rem 0.35rem 0.75rem',
-                  color: '#fff',
-                  fontSize: '0.82rem',
-                  outline: 'none',
-                  width: '210px',
-                }}
-              />
-              <button
-                type="submit"
-                style={{
-                  position: 'absolute',
-                  right: '6px',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  fontSize: '0.78rem',
+                  color: '#a5b4fc',
+                  background: 'rgba(99, 102, 241, 0.15)',
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(99, 102, 241, 0.4)',
                 }}
               >
-                <Search size={14} />
-              </button>
-            </form>
+                <span>Filtered: <strong>{UNIT_DETAILS[selectedMachine]?.title || selectedMachine}</strong></span>
+                <button
+                  onClick={() => handleMachineChange('ALL')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#f87171',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                  title="Reset to All Machines"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
 
-            <button
-              className="btn-outline"
-              style={{ padding: '0.35rem 0.6rem' }}
-              onClick={() => cyRef.current?.zoom(cyRef.current.zoom() * 1.25)}
-              title="Zoom In"
-            >
-              <ZoomIn size={14} />
-            </button>
-            <button
-              className="btn-outline"
-              style={{ padding: '0.35rem 0.6rem' }}
-              onClick={() => cyRef.current?.zoom(cyRef.current.zoom() * 0.8)}
-              title="Zoom Out"
-            >
-              <ZoomOut size={14} />
-            </button>
-            <button
-              className="btn-outline"
-              style={{ padding: '0.35rem 0.6rem' }}
-              onClick={handleResetView}
-              title="Reset View"
-            >
-              <Maximize2 size={14} />
-            </button>
+          {/* Row 2: Entity Filters, Node Spacing Controls, Search Box & Zoom */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.85rem' }}>
+            {/* Entity Type Filters */}
+            <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Filter size={13} /> Layer:
+              </span>
+              <button
+                className={filterType === 'all' ? 'btn-primary' : 'btn-outline'}
+                style={{ padding: '0.32rem 0.7rem', fontSize: '0.78rem' }}
+                onClick={() => handleFilterChange('all')}
+              >
+                All Entities
+              </button>
+              <button
+                className={filterType === 'units' ? 'btn-primary' : 'btn-outline'}
+                style={{ padding: '0.32rem 0.7rem', fontSize: '0.78rem' }}
+                onClick={() => handleFilterChange('units')}
+              >
+                Machines Only
+              </button>
+              <button
+                className={filterType === 'sensors' ? 'btn-primary' : 'btn-outline'}
+                style={{ padding: '0.32rem 0.7rem', fontSize: '0.78rem' }}
+                onClick={() => handleFilterChange('sensors')}
+              >
+                Sensors + Units
+              </button>
+              <button
+                className={filterType === 'failures' ? 'btn-primary' : 'btn-outline'}
+                style={{ padding: '0.32rem 0.7rem', fontSize: '0.78rem' }}
+                onClick={() => handleFilterChange('failures')}
+              >
+                Failure Modes
+              </button>
+            </div>
+
+            {/* Node Spacing & Layout Buttons */}
+            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Layers size={13} /> Spacing:
+              </span>
+              <button
+                className="btn-outline"
+                style={{ padding: '0.32rem 0.6rem', fontSize: '0.76rem' }}
+                onClick={() => handleScaleSpacing(1.25)}
+                title="Increase space between all machines and entities"
+              >
+                + Spread Out
+              </button>
+              <button
+                className="btn-outline"
+                style={{ padding: '0.32rem 0.6rem', fontSize: '0.76rem' }}
+                onClick={() => handleScaleSpacing(0.8)}
+                title="Decrease space between all entities"
+              >
+                - Compact
+              </button>
+              <button
+                className="btn-outline"
+                style={{ padding: '0.32rem 0.6rem', fontSize: '0.76rem', color: 'var(--accent-cyan)' }}
+                onClick={handleRunCoSE}
+                title="Organic physics layout separating all entities"
+              >
+                Auto Physics
+              </button>
+              <button
+                className="btn-outline"
+                style={{ padding: '0.32rem 0.6rem', fontSize: '0.76rem' }}
+                onClick={handleResetFlowsheet}
+                title="Reset to wide-spaced chemical flowsheet layout"
+              >
+                Wide Flowsheet
+              </button>
+            </div>
+
+            {/* Search Box & Zoom Controls */}
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <form onSubmit={handleSearch} style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Search sensor (e.g. XMEAS_9)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.8)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '6px',
+                    padding: '0.35rem 2rem 0.35rem 0.75rem',
+                    color: '#fff',
+                    fontSize: '0.82rem',
+                    outline: 'none',
+                    width: '200px',
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    position: 'absolute',
+                    right: '6px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Search size={14} />
+                </button>
+              </form>
+
+              <button
+                className="btn-outline"
+                style={{ padding: '0.35rem 0.6rem' }}
+                onClick={() => cyRef.current?.zoom(cyRef.current.zoom() * 1.25)}
+                title="Zoom In"
+              >
+                <ZoomIn size={14} />
+              </button>
+              <button
+                className="btn-outline"
+                style={{ padding: '0.35rem 0.6rem' }}
+                onClick={() => cyRef.current?.zoom(cyRef.current.zoom() * 0.8)}
+                title="Zoom Out"
+              >
+                <ZoomOut size={14} />
+              </button>
+              <button
+                className="btn-outline"
+                style={{ padding: '0.35rem 0.6rem' }}
+                onClick={handleResetView}
+                title="Reset View"
+              >
+                <Maximize2 size={14} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -831,6 +1055,52 @@ export default function KnowledgeGraphPage() {
           }}
         >
           <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+          {/* Floating Canvas Header for Focused Machine */}
+          {selectedMachine !== 'ALL' && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '16px',
+                left: '16px',
+                background: 'rgba(15, 23, 42, 0.95)',
+                border: '1.5px solid rgba(99, 102, 241, 0.5)',
+                borderRadius: '8px',
+                padding: '0.55rem 0.95rem',
+                backdropFilter: 'blur(10px)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.85rem',
+                zIndex: 10,
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '0.74rem', color: '#a5b4fc', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  FOCUSED MACHINE SUBGRAPH
+                </div>
+                <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#ffffff' }}>
+                  {UNIT_DETAILS[selectedMachine]?.title || selectedMachine}
+                </div>
+              </div>
+              <button
+                onClick={() => handleMachineChange('ALL')}
+                style={{
+                  background: 'rgba(99, 102, 241, 0.25)',
+                  border: '1px solid rgba(99, 102, 241, 0.6)',
+                  borderRadius: '6px',
+                  padding: '0.35rem 0.75rem',
+                  color: '#ffffff',
+                  fontSize: '0.76rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                View All Machines ✕
+              </button>
+            </div>
+          )}
 
           {/* Canvas Floating Legend */}
           <div

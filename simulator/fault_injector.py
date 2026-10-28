@@ -93,6 +93,24 @@ AVAILABLE_FAULTS = [
         },
         "description": "Condenser cooling water supply restriction leading to higher separator inlet vapor temperatures.",
     },
+    {
+        "id": "plant_wide_cascade",
+        "code": "ALL(43)",
+        "name": "Plant-Wide Multi-Unit Cascade",
+        "title": "Severe Plant-Wide Cascade Propagating Across All 43 Sensors & 6 Units",
+        "primary_unit": "UNIT_FEED",
+        "initiating_sensors": [f"XMEAS_{i}" for i in range(1, 42)] + ["XMV_10", "XMV_11"],
+        "propagation_path": ["UNIT_FEED", "UNIT_REACTOR", "UNIT_CONDENSER", "UNIT_SEPARATOR", "UNIT_COMPRESSOR", "UNIT_STRIPPER"],
+        "delays_sec": {
+            "UNIT_FEED": 0,
+            "UNIT_REACTOR": 4,
+            "UNIT_CONDENSER": 8,
+            "UNIT_SEPARATOR": 12,
+            "UNIT_COMPRESSOR": 18,
+            "UNIT_STRIPPER": 24,
+        },
+        "description": "Massive cascading stoichiometric imbalance initiated at feed manifold and propagating across all 6 unit operations, affecting all 43 sensors and control valves.",
+    },
 ]
 
 # Fast lookup index mapping any alias/name/code to canonical fault dict

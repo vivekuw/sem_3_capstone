@@ -34,10 +34,10 @@ docker compose up -d
 ### Step 2: Start the Backend API (FastAPI)
 Open a terminal and execute:
 ```bash
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8009 --reload
+python -m uvicorn api.main:app --host 127.0.0.1 --port 8005 --reload
 ```
-- **Backend Port**: `8009` (configured specifically to avoid Windows Hyper-V port exclusion conflicts).
-- **Interactive Swagger Documentation**: Open `http://127.0.0.1:8009/docs` in your browser to inspect and trigger all REST endpoints.
+- **Backend Port**: `8005` (configured specifically to avoid Windows Hyper-V port exclusion conflicts).
+- **Interactive Swagger Documentation**: Open `http://127.0.0.1:8005/docs` in your browser to inspect and trigger all REST endpoints.
 
 ---
 
@@ -189,29 +189,29 @@ You can start streaming and inject faults using three different methods:
 7. Click **"Clear Fault"** to return the plant to steady-state baseline.
 
 #### Method B: Via the REST API (FastAPI)
-Using cURL or Swagger UI (`http://127.0.0.1:8009/docs`):
+Using cURL or Swagger UI (`http://127.0.0.1:8005/docs`):
 
 - **Start continuous streaming**:
   ```bash
-  curl -X POST "http://127.0.0.1:8009/simulator/start"
+  curl -X POST "http://127.0.0.1:8005/simulator/start"
   ```
 - **Inject a fault**:
   ```bash
-  curl -X POST "http://127.0.0.1:8009/simulator/inject-fault" \
+  curl -X POST "http://127.0.0.1:8005/simulator/inject-fault" \
        -H "Content-Type: application/json" \
        -d '{"fault_id": "cooling_water_loss", "magnitude": 1.5}'
   ```
 - **Check simulator status**:
   ```bash
-  curl -X GET "http://127.0.0.1:8009/simulator/status"
+  curl -X GET "http://127.0.0.1:8005/simulator/status"
   ```
 - **Clear active fault**:
   ```bash
-  curl -X POST "http://127.0.0.1:8009/simulator/clear-fault"
+  curl -X POST "http://127.0.0.1:8005/simulator/clear-fault"
   ```
 - **Stop streaming**:
   ```bash
-  curl -X POST "http://127.0.0.1:8009/simulator/stop"
+  curl -X POST "http://127.0.0.1:8005/simulator/stop"
   ```
 
 #### Method C: Standalone Command-Line Tool

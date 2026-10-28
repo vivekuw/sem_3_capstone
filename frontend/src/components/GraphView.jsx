@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import cytoscape from 'cytoscape';
-import { Network, ZoomIn, ZoomOut, Maximize2, Info, Layers } from 'lucide-react';
+import { Network, ZoomIn, ZoomOut, Maximize2, Info, Layers, Cpu } from 'lucide-react';
 import { fetchGraphTopology } from '../api/client';
+import { MACHINE_OPTIONS, UNIT_ASSOCIATED_MAP, MACHINE_NEIGHBORS } from './KnowledgeGraphPage';
 
 // Standard flowsheet preset layout coordinates for TEP units
 const PRESET_POSITIONS = {
@@ -64,6 +65,7 @@ export default function GraphView({
   const cyInstance = useRef(null);
   const [selectedNodeInfo, setSelectedNodeInfo] = useState(null);
   const [showSensors, setShowSensors] = useState(true);
+  const [selectedMachine, setSelectedMachine] = useState('ALL');
 
   // Initialize Cytoscape canvas
   useEffect(() => {
@@ -331,6 +333,51 @@ export default function GraphView({
     }
   }, [highlightedUnit, causalPath]);
 
+  // Switch machine subgraph view in GraphView
+  const handleMachineChange = (machineId) => {
+    setSelectedMachine(machineId);
+    const cy = cyInstance.current;
+    if (!cy || cy.destroyed()) return;
+
+    cy.elements().style('display', 'element');
+
+    if (machineId !== 'ALL') {
+      const associated = UNIT_ASSOCIATED_MAP[machineId] || [];
+      const neighbors = MACHINE_NEIGHBORS[machineId] || [];
+      const allowed = new Set([machineId, ...associated, ...neighbors]);
+
+      cy.nodes().forEach((n) => {
+        if (!allowed.has(n.data('id'))) {
+          n.style('display', 'none');
+        }
+      });
+    }
+
+    if (!showSensors) {
+      cy.$('node[type = "Sensor"]').style('display', 'none');
+      cy.$('edge[type = "MEASURES"]').style('display', 'none');
+    }
+
+    cy.edges().forEach((edge) => {
+      const src = edge.source();
+      const tgt = edge.target();
+      if (src.style('display') === 'none' || tgt.style('display') === 'none') {
+        edge.style('display', 'none');
+      }
+    });
+
+    setTimeout(() => {
+      if (!cy || cy.destroyed()) return;
+      const visible = cy.elements().filter((ele) => ele.style('display') !== 'none');
+      if (visible.length > 0) {
+        cy.animate({
+          fit: { eles: visible, padding: machineId === 'ALL' ? 30 : 50 },
+          duration: 350,
+        });
+      }
+    }, 40);
+  };
+
   // Toggle sensor visibility
   const handleToggleSensors = () => {
     const cy = cyInstance.current;
@@ -339,7 +386,16 @@ export default function GraphView({
     setShowSensors(nextState);
 
     if (nextState) {
-      cy.$('node[type = "Sensor"]').style('display', 'element');
+      if (selectedMachine !== 'ALL') {
+        const associated = UNIT_ASSOCIATED_MAP[selectedMachine] || [];
+        cy.nodes().forEach((n) => {
+          if (associated.includes(n.data('id'))) {
+            n.style('display', 'element');
+          }
+        });
+      } else {
+        cy.$('node[type = "Sensor"]').style('display', 'element');
+      }
       cy.$('edge[type = "MEASURES"]').style('display', 'element');
     } else {
       cy.$('node[type = "Sensor"]').style('display', 'none');
@@ -349,7 +405,15 @@ export default function GraphView({
 
   const handleZoomIn = () => cyInstance.current?.zoom(cyInstance.current.zoom() * 1.25);
   const handleZoomOut = () => cyInstance.current?.zoom(cyInstance.current.zoom() * 0.8);
-  const handleReset = () => cyInstance.current?.fit(undefined, 30);
+  const handleReset = () => {
+    setSelectedMachine('ALL');
+    setShowSensors(true);
+    const cy = cyInstance.current;
+    if (cy && !cy.destroyed()) {
+      cy.elements().style('display', 'element');
+      cy.fit(undefined, 30);
+    }
+  };
 
   return (
     <div className="glass-panel" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -360,7 +424,31 @@ export default function GraphView({
           <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Plant Topology & Cytoscape Knowledge Graph</h2>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+          {/* Machine Dropdown Selector */}
+          <select
+            value={selectedMachine}
+            onChange={(e) => handleMachineChange(e.target.value)}
+            style={{
+              background: 'rgba(15, 23, 42, 0.95)',
+              border: '1px solid rgba(99, 102, 241, 0.5)',
+              borderRadius: '6px',
+              padding: '0.3rem 0.65rem',
+              color: '#ffffff',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+            title="Filter graph to a specific machine"
+          >
+            {MACHINE_OPTIONS.map((m) => (
+              <option key={m.id} value={m.id} style={{ background: '#0f172a', color: '#ffffff' }}>
+                {m.icon} {m.id === 'ALL' ? 'All Machines' : m.name}
+              </option>
+            ))}
+          </select>
+
           <button
             className="btn-outline"
             style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}

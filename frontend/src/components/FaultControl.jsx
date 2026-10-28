@@ -7,6 +7,7 @@ const FAULT_OPTIONS = [
   { code: 'cooling_valve_sticking', idv: 'IDV(11)', label: 'IDV(11): Reactor Cooling Valve Sticking', unit: 'UNIT_REACTOR', desc: 'Mechanical oscillation in valve XMV_10' },
   { code: 'feed_ratio_step', idv: 'IDV(1)', label: 'IDV(1): A/C Feed Ratio Step Disturbance', unit: 'UNIT_FEED', desc: 'Stoichiometric disturbance in feed Stream 4' },
   { code: 'condenser_cooling_loss', idv: 'COND', label: 'Condenser Cooling Water Failure', unit: 'UNIT_CONDENSER', desc: 'Cooling restriction in product condenser' },
+  { code: 'plant_wide_cascade', idv: 'ALL(43)', label: 'ALL(43): Plant-Wide Multi-Unit Cascade (All 43 Sensors)', unit: 'ALL_6_UNITS', desc: 'Severe cascading disturbance propagating across all 43 sensors and 6 unit operations' },
 ];
 
 export default function FaultControl({
@@ -107,12 +108,25 @@ export default function FaultControl({
 
         <button
           className="btn-primary"
-          style={{ marginLeft: 'auto' }}
+          style={{
+            marginLeft: 'auto',
+            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+            boxShadow: '0 0 16px rgba(168, 85, 247, 0.45)',
+            border: '1px solid rgba(255, 255, 255, 0.25)',
+            padding: '0.65rem 1.25rem',
+            fontSize: '0.9rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+          }}
           onClick={onTriggerRCA}
           disabled={isLoading}
-          title="Execute multi-modal causal reasoning and generate explanation"
+          title="Execute multi-modal causal reasoning and generate LLM explanation via LM Studio"
         >
-          <Sparkles size={16} /> Trigger LangGraph RCA
+          <Sparkles size={17} color="#ffffff" />
+          {isLoading ? 'Analyzing Root Cause...' : 'Analyze Root Cause (RCA)'}
         </button>
       </div>
     </div>

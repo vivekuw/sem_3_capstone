@@ -80,9 +80,81 @@ async def health_check():
     return {"status": "healthy", "service": "Chemical RCA Agent API"}
 
 
-if __name__ == "__main__":
+@app.get("/api/llm/status")
+@app.get("/llm/status")
+def get_llm_status():
+    """Check connectivity to LM Studio local server and return loaded model."""
+    import urllib.request
+    import json
+    base_url = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
+    configured_model = os.getenv("LLM_MODEL_NAME", "mistralai/mistral-7b-instruct-v0.3")
+    try:
+        url = f"{base_url.rstrip('/')}/models"
+        req = urllib.request.Request(url, headers={"Authorization": "Bearer lm-studio"})
+        with urllib.request.urlopen(req, timeout=2.0) as resp:
+            data = json.loads(resp.read().decode())
+            models = [m.get("id") for m in data.get("data", [])]
+            active_model = models[0] if models else configured_model
+            return {
+                "online": True,
+                "base_url": base_url,
+                "active_model": active_model,
+                "available_models": models,
+            }
+    except Exception as exc:
+        return {
+            "online": False,
+            "base_url": base_url,
+            "active_model": configured_model,
+            "error": str(exc),
+        }
+
+
+@app.get("/api/db/status")
+@app.get("/db/status")
+def get_db_status():
+    """Non-blocking socket check for TimescaleDB and Neo4j connectivity."""
+    import socket
+
+    def check_port(host: str, port: int) -> bool:
+        try:
+            with socket.create_connection((host, port), timeout=0.3):
+                return True
+        except Exception:
+            return False
+
+    timescale_host = os.getenv("TIMESCALE_HOST", "localhost")
+    timescale_port = int(os.getenv("TIMESCALE_PORT", 5432))
+
+    neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    neo4j_host = "localhost"
+    neo4j_port = 7687
+    if "://" in neo4j_uri:
+        clean_uri = neo4j_uri.split("://")[-1]
+        if ":" in clean_uri:
+            parts = clean_uri.split(":")
+            neo4j_host = parts[0]
+            try:
+                neo4j_port = int(parts[1].split("/")[0])
+            except ValueError:
+                neo4j_port = 7687
+
+    neo4j_active = check_port(neo4j_host, neo4j_port)
+    timescale_active = check_port(timescale_host, timescale_port)
+    fallback_active = not (neo4j_active and timescale_active)
+
+    return {
+        "neo4j": neo4j_active,
+        "timescaledb": timescale_active,
+        "fallback_mode": fallback_active,
+        "details": {
+            "neo4j_uri": neo4j_uri,
+            "timescale": f"{timescale_host}:{timescale_port}",
+        },
+    }
+
     import uvicorn
     host = os.getenv("API_HOST", "127.0.0.1")
-    port = int(os.getenv("API_PORT", 8009))
+    port = int(os.getenv("API_PORT", 8005))
     print(f"Starting Chemical RCA Agent API server at http://{host}:{port} ...")
     uvicorn.run("api.main:app", host=host, port=port, reload=True)

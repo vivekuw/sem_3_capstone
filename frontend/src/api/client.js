@@ -28,6 +28,14 @@ export async function clearFault() {
   return res.json();
 }
 
+export async function applyMitigation() {
+  const res = await fetch(`${API_BASE}/simulator/mitigate`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Failed to apply mitigation');
+  return res.json();
+}
+
 export async function stepSimulation() {
   const res = await fetch(`${API_BASE}/simulator/step`, {
     method: 'POST',
@@ -64,17 +72,33 @@ export async function fetchAnomalies() {
   return res.json();
 }
 
-export async function runRCAAnalysis(deviatingSensors = null, eventId = null) {
+export async function runRCAAnalysis(payloadOrSensors = null, eventId = null) {
+  let body;
+  if (payloadOrSensors && typeof payloadOrSensors === 'object' && !Array.isArray(payloadOrSensors)) {
+    const sensors = payloadOrSensors.deviating_sensors || payloadOrSensors.top_sensor_names || ['XMEAS_9', 'XMEAS_21'];
+    body = {
+      event_id: payloadOrSensors.event_id || eventId || `EVT-${Date.now().toString().slice(-4)}`,
+      deviating_sensors: Array.isArray(sensors) ? sensors : [sensors],
+      anomaly_event: payloadOrSensors,
+      lookback_minutes: 5,
+    };
+  } else {
+    body = {
+      event_id: eventId || `EVT-${Date.now().toString().slice(-4)}`,
+      deviating_sensors: Array.isArray(payloadOrSensors) ? payloadOrSensors : ['XMEAS_9', 'XMEAS_21'],
+      lookback_minutes: 5,
+    };
+  }
+
   const res = await fetch(`${API_BASE}/anomalies/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event_id: eventId,
-      deviating_sensors: deviatingSensors,
-      lookback_minutes: 5,
-    }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('Failed to run RCA analysis');
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`RCA Analysis API failed (${res.status}): ${errText}`);
+  }
   return res.json();
 }
 
@@ -85,5 +109,17 @@ export async function submitFeedback(payload) {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error('Failed to submit operator feedback');
+  return res.json();
+}
+
+export async function fetchLLMStatus() {
+  const res = await fetch(`${API_BASE}/llm/status`);
+  if (!res.ok) throw new Error('Failed to fetch LLM status');
+  return res.json();
+}
+
+export async function fetchDBStatus() {
+  const res = await fetch(`${API_BASE}/db/status`);
+  if (!res.ok) throw new Error('Failed to fetch DB status');
   return res.json();
 }
